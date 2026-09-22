@@ -23,6 +23,21 @@ st.set_page_config(
     layout="centered",
 )
 
+import streamlit.components.v1 as components
+
+components.html(
+    """
+    <script>
+    (function() {
+        var meta = document.createElement('meta');
+        meta.name = 'google-site-verification';
+        meta.content = '5grDPUfiynH0KmDVpiRcS4l6zU9oAHQnbP_UvQ4zLcA';
+        window.parent.document.head.appendChild(meta);
+    })();
+    </script>
+    """,
+    height=0,
+)
 
 def load_css(path: Path):
     if path.exists():
