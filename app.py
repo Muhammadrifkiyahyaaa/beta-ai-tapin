@@ -257,7 +257,7 @@ if not st.session_state.messages:
             {logo_html}
             <div class="greeting-text">Halo, saya BETA AI</div>
             <div class="greeting-sub">Tanya apa saja seputar wisata, UMKM, tradisi, dan budaya Kabupaten Tapin</div>
-            <div class="dev-credit">Dikembangkan oleh <strong>Muhammad Rifki Yahya</strong> · Duta Pariwisata Kabupaten Tapin</div>
+            <div class="dev-credit">Dikembangkan oleh <strong>Muhammad Rifki Yahya</strong></div>
         </div>
         """,
         unsafe_allow_html=True,
