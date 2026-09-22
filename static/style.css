@@ -8,7 +8,7 @@
   margin-bottom: 2rem;
 }
 .greeting-logo {
-  width: 170px;
+  width: 240px;
   margin-bottom: 1.2rem;
   animation: logoBreathe 3s ease-in-out infinite;
 }
@@ -124,7 +124,7 @@ div.stButton > button:active {
 .st-key-wa_dev_btn {
   position: fixed;
   top: 10px;
-  right: 120px;
+  right: 200px;
   z-index: 2147483647;
   width: auto !important;
 }
