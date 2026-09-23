@@ -131,6 +131,11 @@ div.stButton > button:active {
 body:has(div[data-testid="stDialog"]) .st-key-wa_dev_btn {
   display: none !important;
 }
+@media (max-width: 640px) {
+  body:has([data-testid="stSidebar"][aria-expanded="true"]) .st-key-wa_dev_btn {
+    display: none !important;
+  }
+}
 .contact-card-static {
   display: flex;
   align-items: center;

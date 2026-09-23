@@ -75,9 +75,28 @@ def ask_beta_ai(question: str, system_prompt: str):
         temperature=0.3,
     )
 
-    answer_text = completion.choices[0].message.content
-    sources = [{"title": r["title"], "url": r["url"]} for r in filtered_results]
-    images = raw_images[:3]
+    raw_answer = completion.choices[0].message.content or ""
+
+    # Baca marker [IN_SCOPE]/[OUT_OF_SCOPE] di baris pertama (lihat system_prompt.py).
+    # Kalau AI menolak menjawab (OUT_OF_SCOPE) atau markernya tidak terbaca sama
+    # sekali (fallback aman), jangan tampilkan gambar & sumber.
+    lines = raw_answer.strip().splitlines()
+    first_line = lines[0].strip() if lines else ""
+
+    if first_line == "[IN_SCOPE]":
+        answer_text = "\n".join(lines[1:]).strip()
+        sources = [{"title": r["title"], "url": r["url"]} for r in filtered_results]
+        images = raw_images[:3]
+    elif first_line == "[OUT_OF_SCOPE]":
+        answer_text = "\n".join(lines[1:]).strip()
+        sources = []
+        images = []
+    else:
+        # Marker tidak ada/tidak sesuai format -> anggap out of scope demi
+        # keamanan, tapi tetap tampilkan teks jawabannya apa adanya.
+        answer_text = raw_answer.strip()
+        sources = []
+        images = []
 
     return answer_text, sources, images
 
