@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  margin-top: 5vh;
+  margin-top: 9vh;
   margin-bottom: 2rem;
 }
 .greeting-logo {
@@ -169,4 +169,212 @@ body:has(div[data-testid="stDialog"]) .st-key-wa_dev_btn {
   color: #888888;
   font-size: 0.8rem;
   margin-top: 1px;
+}
+.weather-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #f0dcc4;
+  background-color: #fdf6ec;
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin: 0.6rem 0;
+}
+.weather-emoji {
+  font-size: 2.1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.weather-temp {
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 1rem;
+}
+.weather-sub {
+  color: #666666;
+  font-size: 0.82rem;
+  margin-top: 2px;
+}
+.weather-note {
+  color: #a68757;
+  font-size: 0.74rem;
+  margin-top: 3px;
+}
+.weather-warning {
+  color: #b3541e;
+  font-weight: 600;
+  font-size: 0.82rem;
+  margin-top: 3px;
+}
+.weather-unavailable {
+  color: #999999;
+  font-size: 0.82rem;
+  font-style: italic;
+  margin: 0.5rem 0;
+}
+.eco-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #cfe8d3;
+  background-color: #f1faf2;
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin: 0.6rem 0;
+}
+.eco-emoji {
+  font-size: 2.1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.eco-title {
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 0.95rem;
+}
+.eco-sub {
+  color: #4c7a52;
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+[data-testid="stAudioInput"] {
+  margin-bottom: 0 !important;
+}
+[data-testid="stBottomBlockContainer"] [data-testid="stHorizontalBlock"] {
+  align-items: center !important;
+}
+
+/* ====== Composer bar: mic bulat terpisah + bar chat sendiri ====== */
+
+/* 1. Sembunyikan angka waktu "00:00" dan area waveform, sisakan ikon mic saja */
+[data-testid="stAudioInputWaveformTimeCode"],
+[data-testid="stAudioInputWaveSurfer"] {
+  display: none !important;
+}
+
+/* 2. Wrapper ini HANYA untuk mengatur posisi (flex), tidak punya kotak/bingkai sendiri */
+.st-key-composer_bar {
+  display: flex !important;
+  align-items: center !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.st-key-composer_bar > div,
+.st-key-composer_bar [data-testid="stHorizontalBlock"],
+.st-key-composer_bar [data-testid="column"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.st-key-composer_bar [data-testid="stHorizontalBlock"] {
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+/* 3. Kotak mic & kotak chat pakai warna dan tinggi yang sama */
+.st-key-composer_bar [data-testid="stAudioInput"],
+.st-key-composer_bar [data-testid="stChatInput"] {
+  background-color: #eef0f2 !important;
+  min-height: 44px !important;
+  border: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+/* semua elemen DI DALAM kedua kotak itu dibuat transparan, supaya tidak ada
+   kotak kedua/ketiga yang nongol di dalamnya (mis. bingkai bawaan tombol mic) */
+.st-key-composer_bar [data-testid="stAudioInput"] *,
+.st-key-composer_bar [data-testid="stChatInput"] * {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* 4. Mic dibuat BULAT PENUH (lingkaran), ukurannya tetap kecil dan pas.
+      Bar chat tetap pil penuh membulat di kedua sisi karena sekarang terpisah. */
+.st-key-composer_bar [data-testid="stAudioInput"] {
+  border-radius: 50% !important;
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  flex: none !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+.st-key-composer_bar [data-testid="stAudioInput"] > div {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.st-key-composer_bar [data-testid="stAudioInputActionButton"] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+}
+/* Solusi pasti: paksa ikon mic (svg) menempel PERSIS di tengah lingkaran,
+   apapun elemen lain yang ada di sampingnya (dot kecil, dsb).
+   position:absolute membuat ikon "lepas" dari alur elemen lain, jadi
+   posisinya tidak lagi terpengaruh elemen tetangga yang memakan ruang. */
+.st-key-composer_bar [data-testid="stAudioInput"] {
+  position: relative !important;
+}
+.st-key-composer_bar [data-testid="stAudioInput"] svg {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+}
+.st-key-composer_bar [data-testid="stChatInput"] {
+  border-radius: 22px !important;
+  flex: 1 1 auto !important;
+}
+
+/* 5. Tombol kirim (submit/enter) di kolom chat: efek hover (desktop, arahkan
+      kursor) & tap (HP, disentuh) jadi oranye terang, senada tombol lain */
+/* 5. Tombol kirim (submit/enter) di kolom chat:
+      - Default (kosong ATAU sedang diisi teks): ikon tetap ABU-ABU, tanpa lingkaran.
+      - Hover (kursor diarahkan) / tap (disentuh di HP): ikon jadi PUTIH + muncul
+        lingkaran oranye terang di belakangnya. */
+.st-key-composer_bar [data-testid="stChatInputSubmitButton"] {
+  border-radius: 50% !important;
+  transition:
+    background-color 0.2s ease,
+    transform 0.15s ease !important;
+}
+.st-key-composer_bar [data-testid="stChatInputSubmitButton"] svg {
+  color: #9a9a9a !important;
+}
+.st-key-composer_bar
+  [data-testid="stChatInputSubmitButton"]:not(:disabled):hover,
+.st-key-composer_bar
+  [data-testid="stChatInputSubmitButton"]:not(:disabled):focus-visible,
+.st-key-composer_bar
+  [data-testid="stChatInputSubmitButton"]:not(:disabled):active {
+  background-color: #ffb95c !important;
+  transform: scale(1.06);
+}
+.st-key-composer_bar
+  [data-testid="stChatInputSubmitButton"]:not(:disabled):hover
+  svg,
+.st-key-composer_bar
+  [data-testid="stChatInputSubmitButton"]:not(:disabled):focus-visible
+  svg,
+.st-key-composer_bar
+  [data-testid="stChatInputSubmitButton"]:not(:disabled):active
+  svg {
+  color: #ffffff !important;
 }

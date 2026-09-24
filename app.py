@@ -2,16 +2,19 @@ import base64
 import html as html_lib
 from pathlib import Path
 
+import folium
 import streamlit as st
 
-from data.scope_filter import is_in_scope
+from data.scope_filter import is_in_scope, mentions_nature_or_itinerary, mentions_cleanliness_topic
 from prompts.system_prompt import SYSTEM_PROMPT
 from services.search_client import (
     ask_beta_ai,
     generate_itinerary,
     generate_budget_estimate,
     generate_quiz_recommendation,
+    transcribe_audio,
 )
+from services.weather_client import get_tapin_weather
 
 LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
 CSS_PATH = Path(__file__).parent / "static" / "style.css"
@@ -76,7 +79,119 @@ def render_images(images, max_images=3):
     cols = st.columns(min(len(images), max_images))
     for i, img in enumerate(images[:max_images]):
         with cols[i]:
-            st.image(img.get("url"), caption=img.get("description") or None, use_container_width=True)
+            st.image(img.get("url"), caption=img.get("description") or None, width="stretch")
+
+
+def google_maps_url(lat, lon):
+    return f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _cached_tapin_weather():
+    """Cache cuaca Tapin selama 10 menit supaya tidak nge-hit API cuaca
+    berkali-kali tiap kali halaman/dialog re-render."""
+    return get_tapin_weather()
+
+
+def render_weather_card(weather):
+    if not weather:
+        st.markdown(
+            '<div class="weather-unavailable">☁️ Info cuaca Tapin saat ini '
+            "tidak tersedia. Cek BMKG atau aplikasi cuaca lain sebelum "
+            "berangkat.</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    warning_html = ""
+    if weather.get("is_raining"):
+        warning_html = (
+            '<div class="weather-warning">⚠️ Sedang/berpotensi hujan — '
+            "pertimbangkan bawa jas hujan atau siapkan rencana cadangan "
+            "indoor.</div>"
+        )
+
+    desc = html_lib.escape(weather.get("description", ""))
+    # Dibangun jadi satu baris utuh (tanpa newline/indentasi) supaya tidak
+    # ada baris kosong di tengah HTML yang bisa membuat st.markdown salah
+    # mengira ada blok baru (menyebabkan "</div>" muncul sebagai teks/kode
+    # mentah alih-alih dirender sebagai tag penutup).
+    card_html = (
+        '<div class="weather-card">'
+        f'<div class="weather-emoji">{weather.get("emoji", "🌡️")}</div>'
+        "<div>"
+        f'<div class="weather-temp">{weather.get("temperature")}°C &middot; {desc}</div>'
+        f'<div class="weather-sub">Kelembapan {weather.get("humidity")}% &middot; Angin {weather.get("wind_speed")} km/j</div>'
+        '<div class="weather-note">Cuaca terkini area Kabupaten Tapin &middot; sumber: Open-Meteo</div>'
+        f"{warning_html}"
+        "</div>"
+        "</div>"
+    )
+    st.markdown(card_html, unsafe_allow_html=True)
+
+
+ECO_TIPS = [
+    "Bawa pulang sampahmu sendiri kalau tidak ada tempat sampah di lokasi.",
+    "Pilah sampah organik dan anorganik sebelum dibuang, ya.",
+    "Sampah plastikmu bisa jadi rezeki UMKM daur ulang lokal kalau dipilah dari awal.",
+    "Sisa makanan bisa diolah jadi kompos — tanya pengelola desa wisata soal bank sampahnya.",
+]
+
+
+def render_eco_reminder():
+    import random
+
+    tip = random.choice(ECO_TIPS)
+    card_html = (
+        '<div class="eco-card">'
+        '<div class="eco-emoji">🌿</div>'
+        "<div>"
+        '<div class="eco-title">Yuk, Jaga Kebersihan Tempat Wisata</div>'
+        f'<div class="eco-sub">{html_lib.escape(tip)}</div>'
+        "</div>"
+        "</div>"
+    )
+    st.markdown(card_html, unsafe_allow_html=True)
+
+
+def render_map(places, key=None):
+    if not places:
+        return
+
+    if len(places) == 1:
+        center = [places[0]["lat"], places[0]["lon"]]
+        zoom = 14
+    else:
+        center = [
+            sum(p["lat"] for p in places) / len(places),
+            sum(p["lon"] for p in places) / len(places),
+        ]
+        zoom = 11
+
+    fmap = folium.Map(location=center, zoom_start=zoom, tiles="OpenStreetMap")
+    for p in places:
+        maps_url = google_maps_url(p["lat"], p["lon"])
+        popup_html = (
+            f'<b>{html_lib.escape(p["name"])}</b><br>'
+            f'<a href="{maps_url}" target="_blank" rel="noopener">Buka di Google Maps</a>'
+        )
+        folium.Marker(
+            location=[p["lat"], p["lon"]],
+            tooltip=p["name"],
+            popup=folium.Popup(popup_html, max_width=250),
+            icon=folium.Icon(color="orange", icon="map-pin", prefix="fa"),
+        ).add_to(fmap)
+
+    components.html(fmap._repr_html_(), height=370)
+
+    cols = st.columns(min(len(places), 3))
+    for i, p in enumerate(places):
+        with cols[i % len(cols)]:
+            st.link_button(
+                f"📍 {p['name']}",
+                google_maps_url(p["lat"], p["lon"]),
+                width="stretch",
+            )
 
 
 @st.dialog("Hubungi Developer")
@@ -102,16 +217,20 @@ def show_contact_dialog():
     st.link_button(
         "💬  Chat di WhatsApp",
         "https://wa.me/6281314428332?text=Halo%20Rifki%2C%20saya%20ingin%20bertanya%20soal%20BETA%20AI",
-        use_container_width=True,
+        width="stretch",
     )
 
-    if st.button("Tutup", use_container_width=True, key="close_contact_dialog"):
+    if st.button("Tutup", width="stretch", key="close_contact_dialog"):
         st.rerun()
 
 
 @st.dialog("Perencana Itinerary Wisata", width="large")
 def show_itinerary_planner():
     st.markdown("Isi kebutuhan kunjunganmu, BETA AI akan susunkan rencana perjalanannya.")
+
+    st.markdown("**Cuaca Tapin saat ini:**")
+    render_weather_card(_cached_tapin_weather())
+    render_eco_reminder()
 
     days = st.number_input("Berapa hari kunjungan?", min_value=1, max_value=5, value=2, step=1)
     interests = st.multiselect(
@@ -120,7 +239,7 @@ def show_itinerary_planner():
         default=["Wisata Alam"],
     )
 
-    if st.button("Buat Rencana", use_container_width=True, key="generate_itinerary_btn"):
+    if st.button("Buat Rencana", width="stretch", key="generate_itinerary_btn"):
         try:
             with st.spinner("Menyusun rencana perjalanan..."):
                 itinerary_text, sources = generate_itinerary(days, interests)
@@ -140,7 +259,7 @@ def show_itinerary_planner():
                     for s in sources:
                         st.markdown(f"- [{s['title']}]({s['url']})")
 
-    if st.button("Tutup", use_container_width=True, key="close_itinerary_dialog"):
+    if st.button("Tutup", width="stretch", key="close_itinerary_dialog"):
         st.rerun()
 
 
@@ -152,7 +271,7 @@ def show_budget_calculator():
     days = st.number_input("Jumlah hari", min_value=1, max_value=7, value=2, step=1, key="budget_days")
     tier = st.selectbox("Kelas budget", ["Hemat", "Menengah", "Nyaman"])
 
-    if st.button("Hitung Estimasi", use_container_width=True, key="calc_budget_btn"):
+    if st.button("Hitung Estimasi", width="stretch", key="calc_budget_btn"):
         try:
             with st.spinner("Menghitung estimasi biaya..."):
                 estimate_text, sources = generate_budget_estimate(people, days, tier)
@@ -167,7 +286,7 @@ def show_budget_calculator():
                     for s in sources:
                         st.markdown(f"- [{s['title']}]({s['url']})")
 
-    if st.button("Tutup", use_container_width=True, key="close_budget_dialog"):
+    if st.button("Tutup", width="stretch", key="close_budget_dialog"):
         st.rerun()
 
 
@@ -186,7 +305,7 @@ def show_travel_quiz():
     )
     waktu = st.radio("Waktu yang kamu punya?", ["Setengah hari", "Seharian penuh", "Beberapa hari"])
 
-    if st.button("Lihat Rekomendasi", use_container_width=True, key="quiz_submit_btn"):
+    if st.button("Lihat Rekomendasi", width="stretch", key="quiz_submit_btn"):
         answers = {"gaya": gaya, "budget": budget, "teman": teman, "waktu": waktu}
         try:
             with st.spinner("Mencocokkan profil wisatamu..."):
@@ -202,7 +321,7 @@ def show_travel_quiz():
                     for s in sources:
                         st.markdown(f"- [{s['title']}]({s['url']})")
 
-    if st.button("Tutup", use_container_width=True, key="close_quiz_dialog"):
+    if st.button("Tutup", width="stretch", key="close_quiz_dialog"):
         st.rerun()
 
 
@@ -221,13 +340,13 @@ with st.sidebar:
         "di Kabupaten Tapin, Kalimantan Selatan."
     )
     st.divider()
-    if st.button("Perencana Itinerary Wisata", use_container_width=True, key="open_itinerary_btn"):
+    if st.button("Perencana Itinerary Wisata", width="stretch", key="open_itinerary_btn"):
         show_itinerary_planner()
-    if st.button("Kalkulator Estimasi Budget", use_container_width=True, key="open_budget_btn"):
+    if st.button("Kalkulator Estimasi Budget", width="stretch", key="open_budget_btn"):
         show_budget_calculator()
-    if st.button("Kuis Wisata Cocokmu", use_container_width=True, key="open_quiz_btn"):
+    if st.button("Kuis Wisata Cocokmu", width="stretch", key="open_quiz_btn"):
         show_travel_quiz()
-    if st.button("Reset percakapan", use_container_width=True, key="reset_chat_btn"):
+    if st.button("Reset percakapan", width="stretch", key="reset_chat_btn"):
         st.session_state.messages = []
         st.rerun()
 
@@ -265,7 +384,7 @@ if not st.session_state.messages:
 
     cols = st.columns(2)
     for i, eq in enumerate(example_questions):
-        if cols[i % 2].button(eq, use_container_width=True, key=f"example_{i}"):
+        if cols[i % 2].button(eq, width="stretch", key=f"example_{i}"):
             clicked_example = eq
 else:
     st.markdown("### BETA AI — Bekantan Tapin AI")
@@ -277,12 +396,39 @@ for idx, message in enumerate(st.session_state.messages):
         if message["role"] == "assistant":
             render_copy_button(message["content"], key=f"hist-{idx}")
             render_images(message.get("images", []))
+            render_map(message.get("places", []), key=f"hist-map-{idx}")
         if message.get("sources"):
             with st.expander("Sumber"):
                 for s in message["sources"]:
                     st.markdown(f"- [{s['title']}]({s['url']})")
 
-typed_question = st.chat_input("Tanya sesuatu tentang Tapin...")
+if "voice_input_key" not in st.session_state:
+    st.session_state.voice_input_key = 0
+if "_last_voice_file_id" not in st.session_state:
+    st.session_state._last_voice_file_id = None
+
+with st.bottom:
+    with st.container(key="composer_bar"):
+        input_cols = st.columns([1, 6], gap="small")
+        with input_cols[0]:
+            audio_value = st.audio_input(
+                "Tanya dengan suara",
+                key=f"voice_input_{st.session_state.voice_input_key}",
+                label_visibility="collapsed",
+            )
+        with input_cols[1]:
+            typed_question = st.chat_input("Tanya sesuatu tentang Tapin...")
+
+voice_question = None
+if audio_value is not None and audio_value.file_id != st.session_state._last_voice_file_id:
+    st.session_state._last_voice_file_id = audio_value.file_id
+    with st.spinner("Mentranskrip suara..."):
+        voice_question = transcribe_audio(audio_value.getvalue(), audio_format="wav")
+    if not voice_question:
+        st.warning(
+            "Maaf, suaranya kurang jelas kedengarannya. Coba rekam ulang di "
+            "tempat yang lebih tenang, atau ketik pertanyaannya langsung ya."
+        )
 
 st.markdown(
     '<div class="disclaimer-text">BETA AI mencari jawaban dari internet secara real-time. '
@@ -290,7 +436,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-question = clicked_example or typed_question
+question = clicked_example or voice_question or typed_question
 
 if question:
     st.session_state.messages.append({"role": "user", "content": question})
@@ -307,7 +453,7 @@ if question:
             st.markdown(answer)
             render_copy_button(answer, key="live-scope")
             st.session_state.messages.append(
-                {"role": "assistant", "content": answer, "sources": [], "images": []}
+                {"role": "assistant", "content": answer, "sources": [], "images": [], "places": []}
             )
         else:
             placeholder = st.empty()
@@ -316,23 +462,36 @@ if question:
                 unsafe_allow_html=True,
             )
             try:
-                answer, sources, images = ask_beta_ai(question, SYSTEM_PROMPT)
+                answer, sources, images, places = ask_beta_ai(question, SYSTEM_PROMPT)
             except Exception as e:
                 answer = f"Maaf, terjadi kesalahan saat memproses pertanyaan: {e}"
-                sources, images = [], []
+                sources, images, places = [], [], []
             placeholder.empty()
 
             st.markdown(answer)
             render_copy_button(answer, key="live-answer")
+            if mentions_nature_or_itinerary(question):
+                render_weather_card(_cached_tapin_weather())
+            if mentions_cleanliness_topic(question):
+                render_eco_reminder()
             render_images(images)
+            render_map(places, key="live-map")
             if sources:
                 with st.expander("Sumber"):
                     for s in sources:
                         st.markdown(f"- [{s['title']}]({s['url']})")
 
             st.session_state.messages.append(
-                {"role": "assistant", "content": answer, "sources": sources, "images": images}
+                {
+                    "role": "assistant",
+                    "content": answer,
+                    "sources": sources,
+                    "images": images,
+                    "places": places,
+                }
             )
 
-    if clicked_example:
+    if clicked_example or voice_question:
+        if voice_question:
+            st.session_state.voice_input_key += 1
         st.rerun()

@@ -1,4 +1,7 @@
-streamlit
+streamlit>=1.38.0
 groq
 tavily-python
 python-dotenv
+folium
+geopy
+requests

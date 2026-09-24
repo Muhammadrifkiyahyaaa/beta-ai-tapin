@@ -4,6 +4,11 @@ TOPIC_KEYWORDS = [
     "tradisi", "adat", "budaya", "kuliner", "makanan khas", "event", "festival",
     "kerajinan", "oleh-oleh", "sejarah", "desa wisata", "air terjun",
     "sungai", "pasar", "museum", "masjid", "candi",
+    # Sampah & kebersihan wisata (dikaitkan ke wisata/UMKM, bukan topik
+    # lingkungan umum yang berdiri sendiri)
+    "sampah", "bank sampah", "daur ulang", "kompos", "kelola sampah",
+    "pengelolaan sampah", "kebersihan wisata", "kebersihan destinasi",
+    "buang sampah", "pilah sampah",
 ]
 
 # Kata kunci lokasi yang menandakan konteksnya benar-benar Kabupaten Tapin
@@ -25,6 +30,46 @@ BLOCKED_KEYWORDS = [
     # Cafe / coffee shop modern (di luar cakupan "kuliner khas" resmi)
     "cafe", "kafe", "coffee shop", "coffeeshop",
 ]
+
+
+# Kata kunci yang menandakan pertanyaan user seputar rencana jalan-jalan
+# atau wisata outdoor/alam -> dipakai untuk memicu munculnya info cuaca
+# otomatis di jawaban (lihat app.py).
+NATURE_ITINERARY_KEYWORDS = [
+    "itinerary", "rencana", "jalan-jalan", "jalan2", "trip", "liburan",
+    "mau ke", "rencana ke", "wisata alam", "outdoor", "hiking", "trekking",
+    "camping", "berkemah", "air terjun", "curug", "sungai", "pemandian",
+    "bukit", "gunung", "danau", "pantai", "kapan waktu terbaik",
+    "cocok kapan", "musim",
+]
+
+
+def mentions_nature_or_itinerary(text: str) -> bool:
+    """
+    Cek apakah teks pertanyaan menyinggung rencana perjalanan atau wisata
+    alam/outdoor, di mana info cuaca terkini akan relevan untuk ditampilkan.
+    """
+    t = (text or "").lower()
+    return any(k in t for k in NATURE_ITINERARY_KEYWORDS)
+
+
+# Kata kunci yang memicu munculnya kartu pengingat "Jaga Kebersihan" di
+# jawaban -> ditampilkan saat user tanya soal wisata alam/itinerary/sampah,
+# supaya pesan #JagaKebersihan selalu nempel di konteks yang relevan.
+CLEANLINESS_REMINDER_KEYWORDS = NATURE_ITINERARY_KEYWORDS + [
+    "sampah", "bank sampah", "daur ulang", "kompos", "kelola sampah",
+    "pengelolaan sampah", "kebersihan wisata", "kebersihan destinasi",
+    "buang sampah", "pilah sampah", "wisata alam",
+]
+
+
+def mentions_cleanliness_topic(text: str) -> bool:
+    """
+    Cek apakah pertanyaan user relevan untuk menampilkan kartu pengingat
+    kebersihan/pengelolaan sampah (dipakai di app.py).
+    """
+    t = (text or "").lower()
+    return any(k in t for k in CLEANLINESS_REMINDER_KEYWORDS)
 
 
 def is_in_scope(question: str) -> bool:
