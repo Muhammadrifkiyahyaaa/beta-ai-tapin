@@ -4,11 +4,13 @@ from pathlib import Path
 
 import folium
 import streamlit as st
+from groq import RateLimitError
 
 from data.scope_filter import is_in_scope, mentions_nature_or_itinerary, mentions_cleanliness_topic
 from prompts.system_prompt import SYSTEM_PROMPT
 from services.search_client import (
     ask_beta_ai,
+    detect_language,
     generate_itinerary,
     generate_budget_estimate,
     generate_quiz_recommendation,
@@ -463,6 +465,22 @@ if question:
             )
             try:
                 answer, sources, images, places = ask_beta_ai(question, SYSTEM_PROMPT)
+            except RateLimitError:
+                # Kuota harian Groq API (gratis, dipakai bersama semua
+                # pengunjung) habis -> tampilkan pesan ramah, bukan pesan
+                # error mentah dari Groq yang teknis & bisa membingungkan
+                # pengunjung awam.
+                lang = detect_language(question)
+                answer = (
+                    "Sorry, BETA AI has hit today's usage limit because a lot of "
+                    "people have been using it. Please try again in a few minutes "
+                    "or later today."
+                    if lang == "en"
+                    else "Maaf, BETA AI sedang kena batas pemakaian harian karena "
+                    "banyak yang mengakses hari ini. Coba lagi beberapa menit lagi "
+                    "atau nanti ya."
+                )
+                sources, images, places = [], [], []
             except Exception as e:
                 answer = f"Maaf, terjadi kesalahan saat memproses pertanyaan: {e}"
                 sources, images, places = [], [], []
